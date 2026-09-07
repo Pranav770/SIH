@@ -1,0 +1,40 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets / credentials
+pass.txt
+*.env
+.env*
+
+# Logs
+*.log
+
+# Media / records
+records/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.jpeg
+*.jpg
+*.png
+*.bin
