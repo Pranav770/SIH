@@ -21,6 +21,7 @@ from widgets.status_bar import StatusBar
 from widgets.survivor_list import SurvivorList
 from widgets.hazard_panel import HazardPanel
 from widgets.controls import Controls
+from widgets.telemetry_popup import TelemetryPopup
 from models.mission import MissionState
 from models.survivor import Survivor
 
@@ -88,6 +89,7 @@ class MissionPlannerGCS(QMainWindow):
         self._root_layout = root_layout
         self._body = body
         self._is_fullscreen = False
+        self._popup: TelemetryPopup | None = None
 
         esc = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
         esc.activated.connect(self._exit_fullscreen)
@@ -108,6 +110,9 @@ class MissionPlannerGCS(QMainWindow):
         self.telemetry_thread.telemetry_signal.connect(
             self.status_bar.update_telemetry
         )
+        self.telemetry_thread.telemetry_signal.connect(
+            self._on_telemetry_update
+        )
         self.telemetry_thread.connection_status.connect(
             self.controls.set_connection_status
         )
@@ -120,6 +125,7 @@ class MissionPlannerGCS(QMainWindow):
         self.controls.pause_signal.connect(self._on_pause)
         self.controls.return_home_signal.connect(self._on_return_home)
         self.camera_feed.double_clicked.connect(self._toggle_fullscreen)
+        self.status_bar.telemetry_detail_clicked.connect(self._toggle_telemetry_popup)
 
     def _on_map_update(
         self,
@@ -190,6 +196,37 @@ class MissionPlannerGCS(QMainWindow):
         self.status_bar.show()
         self._body.show()
         self.controls.show()
+
+    def _toggle_telemetry_popup(self, badge_name: str):
+        if self._popup is not None and self._popup.isVisible():
+            self._popup.close()
+            self._popup = None
+            return
+
+        self._popup = TelemetryPopup()
+        self._popup.closed.connect(self._on_popup_closed)
+        self._popup.update_telemetry(self.status_bar._telemetry_data)
+
+        badge = {
+            "mode": self.status_bar.mode_badge,
+            "armed": self.status_bar.armed_badge,
+            "battery": self.status_bar.battery_bar,
+            "gps": self.status_bar.gps_badge,
+            "heading": self.status_bar.heading_badge,
+            "altitude": self.status_bar.alt_badge,
+            "speed": self.status_bar.speed_badge,
+        }.get(badge_name, self.status_bar.mode_badge)
+
+        pos = badge.mapToGlobal(badge.rect().bottomLeft())
+        self._popup.move(pos.x(), pos.y() + 4)
+        self._popup.show()
+
+    def _on_telemetry_update(self, data: dict):
+        if self._popup is not None and self._popup.isVisible():
+            self._popup.update_telemetry(data)
+
+    def _on_popup_closed(self):
+        self._popup = None
 
     def closeEvent(self, event):
         self.telemetry_thread.stop()
