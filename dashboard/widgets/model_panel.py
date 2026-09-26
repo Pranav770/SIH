@@ -42,8 +42,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__f
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from sih_model.inference import (  # noqa: E402
-    CLASS_DESCRIPTIONS,
+from sih_model.model_profile import (  # noqa: E402
     DATASET_SUMMARY,
     DATASET_TABLE,
     END_TO_END,
