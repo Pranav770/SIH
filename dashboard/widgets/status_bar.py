@@ -1,24 +1,44 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFrame
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QColor, QMouseEvent
+from PySide6.QtGui import QFont, QMouseEvent
+from theme import (
+    PANEL_BG,
+    BORDER,
+    TXT_BRIGHT,
+    TXT_MUTED,
+    CYAN,
+    GREEN,
+    AMBER,
+    RED,
+    TEAL,
+    MAGENTA,
+    BLUE,
+    FONT,
+    badge_qss,
+)
 
 
 class TelemetryBadge(QLabel):
-    """A QLabel badge that supports hover tooltips and double-click signals."""
+    """Glass-cockpit datablock: cyan tag + bright value on an inset panel."""
 
     double_clicked = Signal(str)
 
-    def __init__(self, text: str, bg: str, badge_name: str, parent=None):
+    def __init__(self, text: str, accent: str, badge_name: str, parent=None):
         super().__init__(text, parent)
         self._badge_name = badge_name
-        self._default_bg = bg
-        self.setStyleSheet(
-            f"background-color: {bg}; color: #ddd; padding: 4px 8px; "
-            f"border-radius: 4px; font-weight: bold;"
-        )
-        self.setFont(QFont("monospace", 9))
-        self.setMinimumWidth(100)
+        self._accent = accent
+        self.setTextFormat(Qt.TextFormat.RichText)
+        self.setStyleSheet(badge_qss(accent))
+        self.setFont(QFont(FONT, 9))
+        self.setMinimumWidth(96)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def set_readout(self, tag: str, value: str, accent=None, value_color=None):
+        accent = accent or self._accent
+        self.setStyleSheet(badge_qss(accent))
+        tag_html = f"<span style='color:{CYAN};'>{tag}:</span> " if tag else ""
+        val_html = f"<span style='color:{value_color or TXT_BRIGHT};'>{value}</span>"
+        self.setText(f"{tag_html}{val_html}")
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -33,30 +53,37 @@ class StatusBar(QWidget):
         super().__init__(parent)
         self.setFixedHeight(48)
         self.setStyleSheet(
-            "background-color: #1e1e2e; border-bottom: 1px solid #333;"
+            f"background-color: {PANEL_BG}; border-bottom: 1px solid {BORDER};"
         )
 
         self._telemetry_data: dict = {}
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 4, 12, 4)
-        layout.setSpacing(16)
+        layout.setSpacing(8)
 
-        self.mode_badge = TelemetryBadge("MODE: ---", "#3b3b5c", "mode")
-        self.armed_badge = TelemetryBadge("DISARMED", "#5c3b3b", "armed")
-        self.battery_bar = TelemetryBadge("BAT: --%", "#3b5c3b", "battery")
-        self.gps_badge = TelemetryBadge("GPS: --", "#3b3b5c", "gps")
-        self.heading_badge = TelemetryBadge("HDG: ---", "#3b3b5c", "heading")
-        self.alt_badge = TelemetryBadge("ALT: --", "#3b3b5c", "altitude")
-        self.speed_badge = TelemetryBadge("SPD: --", "#3b3b5c", "speed")
+        self.mode_badge = TelemetryBadge("MODE ---", CYAN, "mode")
+        self.armed_badge = TelemetryBadge("ARM ---", RED, "armed")
+        self.battery_bar = TelemetryBadge("BAT --%", GREEN, "battery")
+        self.gps_badge = TelemetryBadge("GPS --", TEAL, "gps")
+        self.heading_badge = TelemetryBadge("HDG ---", MAGENTA, "heading")
+        self.alt_badge = TelemetryBadge("ALT --", AMBER, "altitude")
+        self.speed_badge = TelemetryBadge("SPD --", BLUE, "speed")
+        self.vert_badge = TelemetryBadge("VERT --", TEAL, "vert")
+        self.time_badge = TelemetryBadge("TIME --:--:--", CYAN, "time")
+        self._gps_lost = False
 
-        self.mission_label = QLabel("Mission: Idle")
-        self.mission_label.setStyleSheet("color: #aaa; font-weight: bold;")
-        self.mission_label.setFont(QFont("monospace", 10))
+        self.mission_label = QLabel()
+        self.mission_label.setTextFormat(Qt.TextFormat.RichText)
+        self.mission_label.setFont(QFont(FONT, 10))
+        self.mission_label.setMinimumWidth(130)
 
         self.progress_label = QLabel("0%")
-        self.progress_label.setStyleSheet("color: #aaa;")
-        self.progress_label.setFont(QFont("monospace", 10))
+        self.progress_label.setStyleSheet(
+            f"color: {CYAN}; border: 1px solid {BORDER}; border-radius: 2px; "
+            f"padding: 3px 10px; font-weight: bold;"
+        )
+        self.progress_label.setFont(QFont(FONT, 10, QFont.Weight.Bold))
 
         self._badges = [
             self.mode_badge,
@@ -66,6 +93,8 @@ class StatusBar(QWidget):
             self.heading_badge,
             self.alt_badge,
             self.speed_badge,
+            self.vert_badge,
+            self.time_badge,
         ]
 
         for badge in self._badges:
@@ -79,6 +108,21 @@ class StatusBar(QWidget):
             layout.addWidget(w)
 
         layout.addStretch()
+
+        self.drone_label = QLabel("DRONE-01")
+        self.drone_label.setStyleSheet(f"color: {TXT_MUTED};")
+        self.drone_label.setFont(QFont(FONT, 9, QFont.Weight.Bold))
+        layout.addWidget(self.drone_label, 0, Qt.AlignmentFlag.AlignRight)
+
+        self._set_mission("IDLE", 0.0)
+
+    def _set_mission(self, phase_text: str, progress: float):
+        self.mission_label.setText(
+            f"<span style='color:{CYAN};'>MISSION:</span> "
+            f"<span style='color:{TXT_BRIGHT};'>{phase_text}</span>"
+        )
+        pct = min(100.0, max(0.0, progress))
+        self.progress_label.setText(f"{pct:.0f}%")
 
     def _build_tooltips(self):
         d = self._telemetry_data
@@ -103,7 +147,15 @@ class StatusBar(QWidget):
         y = d.get("y")
         z = d.get("z")
 
-        fix_types = {0: "No GPS", 1: "No Fix", 2: "2D", 3: "3D", 4: "DGPS", 5: "RTK Float", 6: "RTK Fixed"}
+        fix_types = {
+            0: "No GPS",
+            1: "No Fix",
+            2: "2D",
+            3: "3D",
+            4: "DGPS",
+            5: "RTK Float",
+            6: "RTK Fixed",
+        }
 
         self.mode_badge.setToolTip(
             f"Flight Mode: {mode}\n"
@@ -171,38 +223,66 @@ class StatusBar(QWidget):
         self._telemetry_data.update(data)
 
         if "mode" in data:
-            self.mode_badge.setText(f"MODE: {data['mode']}")
+            self.mode_badge.set_readout("MODE", str(data["mode"]))
+
         if "armed" in data:
             armed = data["armed"]
-            self.armed_badge.setText("ARMED" if armed else "DISARMED")
-            self.armed_badge.setStyleSheet(
-                "background-color: #3b5c3b; color: #4f4; padding: 4px 8px; "
-                "border-radius: 4px; font-weight: bold;"
-                if armed
-                else "background-color: #5c3b3b; color: #f66; padding: 4px 8px; "
-                "border-radius: 4px; font-weight: bold;"
-            )
+            text = "ARMED" if armed else "DISARMED"
+            color = GREEN if armed else RED
+            self.armed_badge.set_readout("", text, accent=color, value_color=color)
+
         if "battery" in data:
             bat = data["battery"]
-            color = "#3b5c3b" if bat > 50 else "#5c5c3b" if bat > 20 else "#5c3b3b"
-            self.battery_bar.setText(f"BAT: {bat}%")
-            self.battery_bar.setStyleSheet(
-                f"background-color: {color}; color: #ddd; padding: 4px 8px; "
-                f"border-radius: 4px; font-weight: bold;"
-            )
-        if "gps_satellites" in data:
+            color = GREEN if bat > 50 else AMBER if bat > 20 else RED
+            self.battery_bar.set_readout("BAT", f"{bat}%", accent=color)
+
+        if "gps_satellites" in data and not self._gps_lost:
             fix = data.get("gps_fix", 0)
             sats = data["gps_satellites"]
-            self.gps_badge.setText(f"GPS: {sats}sats Fix:{fix}")
+            self.gps_badge.set_readout("GPS", f"{sats}S F{fix}")
+
         if "heading" in data:
-            self.heading_badge.setText(f"HDG: {data['heading']:.0f}")
+            self.heading_badge.set_readout("HDG", f"{data['heading']:.0f}°")
+
         if "alt" in data:
-            self.alt_badge.setText(f"ALT: {data['alt']:.1f}m")
+            self.alt_badge.set_readout("ALT", f"{data['alt']:.1f}M")
+
         if "groundspeed" in data:
-            self.speed_badge.setText(f"SPD: {data['groundspeed']:.1f}m/s")
+            self.speed_badge.set_readout("SPD", f"{data['groundspeed']:.1f}M/S")
+
+        if "climb" in data:
+            # units live in the tooltip — keeps the 9-badge row inside
+            # the 1280 px minimum window without clipping
+            self.vert_badge.set_readout("VERT", f"{data['climb']:+.1f}")
 
         self._build_tooltips()
 
-    def update_mission(self, phase_text: str, progress: float):
-        self.mission_label.setText(f"Mission: {phase_text}")
-        self.progress_label.setText(f"{progress:.0f}%")
+    def set_gps_state(self, denied: bool) -> None:
+        """GPS-denied overrides the receiver readout (receiver truth stays
+        available in the tooltip and the NAV panel)."""
+        denied = bool(denied)
+        if denied == self._gps_lost:
+            return
+        self._gps_lost = denied
+        if denied:
+            self.gps_badge.set_readout("GPS", "LOST", accent=RED,
+                                       value_color=RED)
+            self.gps_badge.setToolTip(
+                "GPS-DENIED NAVIGATION — position held by EKF/INS fallback\n"
+                "(receiver values in telemetry detail popup)")
+        else:
+            d = self._telemetry_data
+            if "gps_satellites" in d:
+                self.gps_badge.set_readout(
+                    "GPS",
+                    f"{d['gps_satellites']}S F{d.get('gps_fix', 0)}")
+
+    def update_mission(self, phase_text: str, progress: float,
+                       timer_text: str | None = None):
+        self._set_mission(phase_text, progress)
+        if timer_text is not None:
+            # compact MM:SS while under an hour (full HH:MM:SS in the
+            # MISSION tab); keeps the row from clipping
+            if timer_text.startswith("00:"):
+                timer_text = timer_text[3:]
+            self.time_badge.set_readout("TIME", timer_text)

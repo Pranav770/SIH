@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGraphicsDropShadowEffect
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QColor
+from theme import POPUP_BG, BORDER, TXT_TEXT, CYAN, BLUE, GREEN, TEAL, AMBER, MAGENTA, FONT
 
 
 class TelemetryPopup(QWidget):
@@ -10,7 +11,7 @@ class TelemetryPopup(QWidget):
         super().__init__(parent, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.setStyleSheet(
-            "background-color: #1e1e2ee0; border: 1px solid #444; border-radius: 8px;"
+            f"background-color: {POPUP_BG}; border: 1px solid {BORDER}; border-radius: 2px;"
         )
         self.setMinimumWidth(320)
 
@@ -25,36 +26,36 @@ class TelemetryPopup(QWidget):
         self._layout.setSpacing(8)
 
         self._title = QLabel("TELEMETRY DETAILS")
-        self._title.setStyleSheet("color: #88aaff; font-weight: bold; border: none;")
-        self._title.setFont(QFont("monospace", 11, QFont.Weight.Bold))
+        self._title.setStyleSheet(f"color: {CYAN}; font-weight: bold; border: none;")
+        self._title.setFont(QFont(FONT, 11, QFont.Weight.Bold))
         self._layout.addWidget(self._title)
         self._layout.addWidget(self._separator())
 
         self._sections: dict[str, tuple[QLabel, list[QLabel]]] = {}
 
-        self._build_section("flight", "FLIGHT", "#6688ff")
-        self._build_section("battery", "BATTERY & POWER", "#66cc66")
-        self._build_section("gps", "GPS & NAVIGATION", "#44cccc")
-        self._build_section("position", "POSITION", "#cc8844")
-        self._build_section("attitude", "ATTITUDE", "#aa66cc")
+        self._build_section("flight", "FLIGHT", BLUE)
+        self._build_section("battery", "BATTERY & POWER", GREEN)
+        self._build_section("gps", "GPS & NAVIGATION", TEAL)
+        self._build_section("position", "POSITION", AMBER)
+        self._build_section("attitude", "ATTITUDE", MAGENTA)
 
     def _separator(self) -> QWidget:
         line = QWidget()
         line.setFixedHeight(1)
-        line.setStyleSheet("background-color: #444; border: none;")
+        line.setStyleSheet(f"background-color: {BORDER}; border: none;")
         return line
 
     def _build_section(self, key: str, title: str, color: str):
         header = QLabel(title)
         header.setStyleSheet(f"color: {color}; font-weight: bold; margin-top: 4px; border: none;")
-        header.setFont(QFont("monospace", 9, QFont.Weight.Bold))
+        header.setFont(QFont(FONT, 9, QFont.Weight.Bold))
         self._layout.addWidget(header)
 
         value_labels = []
         for _ in range(6):
             lbl = QLabel("")
-            lbl.setStyleSheet("color: #ddd; border: none;")
-            lbl.setFont(QFont("monospace", 9))
+            lbl.setStyleSheet(f"color: {TXT_TEXT}; border: none;")
+            lbl.setFont(QFont(FONT, 9))
             self._layout.addWidget(lbl)
             value_labels.append(lbl)
 
@@ -99,16 +100,13 @@ class TelemetryPopup(QWidget):
     def _update_battery(self, d: dict):
         bat = d.get("battery", None)
         voltage = d.get("voltage", None)
+        current = d.get("current", None)
         bat_str = f"{bat}%" if bat is not None else "---"
         volt_str = f"{voltage / 1000:.2f} V" if voltage is not None else "---"
-        self._set_values("battery", [
-            ("Remaining", bat_str),
-            ("Voltage", volt_str),
-            ("", ""),
-            ("", ""),
-            ("", ""),
-            ("", ""),
-        ])
+        pairs = [("Remaining", bat_str), ("Voltage", volt_str)]
+        if current is not None:
+            pairs.append(("Current", f"{current / 100:.1f} A"))
+        self._set_values("battery", pairs)
 
     def _update_gps(self, d: dict):
         fix_types = {
@@ -123,14 +121,18 @@ class TelemetryPopup(QWidget):
         fix = d.get("gps_fix", 0)
         sats = d.get("gps_satellites", "---")
         fix_str = fix_types.get(fix, f"Unknown ({fix})")
-        self._set_values("gps", [
+        hdop = d.get("gps_hdop")
+        acc = d.get("gps_accuracy_m")
+        pairs = [
             ("Fix Type", fix_str),
             ("Satellites", str(sats)),
-            ("", ""),
-            ("", ""),
-            ("", ""),
-            ("", ""),
-        ])
+            ("HDOP", f"{hdop:.1f}" if hdop is not None else "---"),
+        ]
+        if acc is not None:
+            pairs.append(("H-Accuracy", f"{acc:.2f} m"))
+        if d.get("gps_denied"):
+            pairs.append(("Nav state", "GPS-DENIED ACTIVE"))
+        self._set_values("gps", pairs)
 
     def _update_position(self, d: dict):
         x = d.get("x", None)
@@ -138,6 +140,9 @@ class TelemetryPopup(QWidget):
         z = d.get("z", None)
         alt = d.get("alt", None)
         pairs = []
+        if d.get("lat") is not None and d.get("lon") is not None:
+            pairs.append(("Lat", f"{d['lat']:.6f}"))
+            pairs.append(("Lon", f"{d['lon']:.6f}"))
         if x is not None:
             pairs.append(("X (NED)", f"{x:.1f} m"))
         if y is not None:

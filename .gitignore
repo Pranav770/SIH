@@ -28,6 +28,10 @@ pass.txt
 # Logs
 *.log
 
+# Runtime local store (offline sync queue)
+.local_store/
+dashboard/.local_store/
+
 # Media / records
 records/
 *.mp4

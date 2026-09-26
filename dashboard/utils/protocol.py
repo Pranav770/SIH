@@ -41,6 +41,7 @@ def encode_map_packet(
     drone_pos: tuple[int, int],
     hazards: list[dict],
     mission: dict,
+    extra: dict | None = None,
 ) -> bytes:
     payload = {
         "grid_shape": list(grid.shape),
@@ -50,6 +51,8 @@ def encode_map_packet(
         "hazards": hazards,
         "mission": mission,
     }
+    if extra:
+        payload.update(extra)
     meta_json = json.dumps(payload).encode("utf-8")
     grid_bytes = grid.tobytes()
     header = struct.pack(
@@ -58,9 +61,22 @@ def encode_map_packet(
     return header + meta_json + grid_bytes
 
 
+#: packet keys consumed by the decoder itself; everything else in the JSON
+#: meta block is passed through as ``extra`` (detections, ai, comms, nav,
+#: origin, source, …) so older senders keep working unchanged.
+_KNOWN_KEYS = {
+    "grid_shape", "grid_dtype", "survivors", "drone_pos", "hazards", "mission",
+}
+
+
 def decode_map_packet(
     data: bytes,
-) -> tuple[np.ndarray, list, tuple[int, int], list, dict] | None:
+) -> tuple[np.ndarray, list, tuple[int, int], list, dict, dict] | None:
+    """Returns (grid, survivors, drone_pos, hazards, mission, extra).
+
+    ``extra`` carries optional extension fields; missing keys simply mean
+    *not reported* by the sender.
+    """
     if len(data) < HEADER_SIZE:
         return None
     magic, meta_len, grid_len = struct.unpack(
@@ -77,10 +93,12 @@ def decode_map_packet(
     grid = np.frombuffer(grid_bytes, dtype=meta["grid_dtype"]).reshape(
         meta["grid_shape"]
     )
+    extra = {k: v for k, v in meta.items() if k not in _KNOWN_KEYS}
     return (
         grid,
         meta["survivors"],
         tuple(meta["drone_pos"]),
         meta["hazards"],
         meta["mission"],
+        extra,
     )
