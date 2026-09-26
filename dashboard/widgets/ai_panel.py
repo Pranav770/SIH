@@ -87,6 +87,16 @@ class AIPanel(QWidget):
         self.meta.setFont(QFont(FONT, 7))
         lay.addWidget(self.meta)
 
+        # -- local on-device inference (dashboard host) --------------------
+        self.edge = QLabel("LOCAL EDGE INFERENCE: idle")
+        self.edge.setWordWrap(True)
+        self.edge.setStyleSheet(
+            f"background-color: {INSET_BG}; color: {TXT_DIM}; "
+            f"border: 1px solid {BORDER}; border-left: 3px solid {TXT_DIM}; "
+            f"border-radius: 2px; padding: 4px;")
+        self.edge.setFont(QFont(FONT, 7))
+        lay.addWidget(self.edge)
+
         # -- class counters ------------------------------------------------
         chead = QLabel("DETECTOR COUNTERS")
         chead.setStyleSheet(f"color: {CYAN}; font-weight: bold;")
@@ -210,6 +220,29 @@ class AIPanel(QWidget):
                     f"padding: 2px 5px;")
 
         self._reload_table()
+
+    def set_local_inference(self, status: dict | None) -> None:
+        """Live status of the dashboard-host YOLO engine (edge AI)."""
+        if not status:
+            return
+        if not status.get("available"):
+            self.edge.setText(
+                "LOCAL EDGE INFERENCE: UNAVAILABLE — "
+                + (status.get("reason") or "no model loaded"))
+            self.edge.setStyleSheet(
+                f"background-color: {INSET_BG}; color: {AMBER}; "
+                f"border: 1px solid {BORDER}; border-left: 3px solid {AMBER}; "
+                f"border-radius: 2px; padding: 4px;")
+            return
+        self.edge.setText(
+            f"LOCAL EDGE INFERENCE: {status.get('backend')} · "
+            f"{status.get('model')}\n"
+            f"{status.get('fps', 0):.1f} FPS · {status.get('latency_ms', 0):.1f} ms · "
+            f"{status.get('detections', 0)} detections")
+        self.edge.setStyleSheet(
+            f"background-color: {INSET_BG}; color: {TXT_BRIGHT}; "
+            f"border: 1px solid {BORDER}; border-left: 3px solid {GREEN}; "
+            f"border-radius: 2px; padding: 4px;")
 
     def _reload_table(self) -> None:
         selected = None

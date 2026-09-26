@@ -150,6 +150,7 @@ def main() -> int:
     from widgets.alerts_panel import AlertsPanel
     from widgets.mission_panel import MissionPanel
     from widgets.report_panel import ReportPanel
+    from widgets.model_panel import ModelPanel
     from widgets.camera_feed import CameraFeed
     from widgets.thermal_feed import ThermalFeed
     from widgets.map_canvas import MapCanvas
@@ -162,9 +163,12 @@ def main() -> int:
 
     panels = [NavPanel(store), AIPanel(store), FusionBar(store),
               CommsPanel(store), SensorPanel(store), AlertsPanel(store),
-              MissionPanel(store), ReportPanel(store)]
+              MissionPanel(store), ReportPanel(store), ModelPanel(store)]
     for p in panels:
         p.refresh()
+    panels[-1].set_inference_status({"available": True, "backend": "onnxruntime",
+                                     "model": "best.onnx", "fps": 8.0,
+                                     "latency_ms": 1.7, "detections": 3})
 
     survivor_list = SurvivorList()
     survivor_list.update_survivors(store.survivors)
@@ -232,6 +236,45 @@ def main() -> int:
     finally:
         win.close()
         app.processEvents()
+
+    # -- on-device inference engine: decode + NMS (no real weights) ------
+    import numpy as _np
+    _root = os.path.dirname(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))))
+    if _root not in sys.path:
+        sys.path.insert(0, _root)
+    from sih_model.inference import (SIHInferenceEngine, CLASS_NAMES,
+                                     DASHBOARD_CLASS_MAP)
+
+    class _In:
+        name = "images"
+
+    class _Sess:
+        def __init__(self, pred):
+            self.pred = pred
+
+        def get_inputs(self):
+            return [_In()]
+
+        def run(self, _out, _feed):
+            return [self.pred]
+
+    nc = len(CLASS_NAMES)
+    pred = _np.zeros((1, 4 + nc, 8400), dtype=_np.float32)
+    pred[0, 0, 0], pred[0, 1, 0], pred[0, 2, 0], pred[0, 3, 0] = 320, 320, 40, 40
+    pred[0, 4 + 4, 0] = 0.90          # structural_damage
+    pred[0, 0, 1], pred[0, 1, 1], pred[0, 2, 1], pred[0, 3, 1] = 322, 318, 42, 42
+    pred[0, 4 + 4, 1] = 0.60          # overlapping duplicate -> NMS drops
+    eng = object.__new__(SIHInferenceEngine)
+    eng.model_path, eng.conf, eng.iou, eng.imgsz = "fake.onnx", 0.25, 0.45, 640
+    eng.backend, eng.available, eng.reason = "onnxruntime", True, ""
+    eng._session, eng._model, eng._requested_backend = _Sess(pred), None, "auto"
+    dets = eng.infer(_np.zeros((640, 640, 3), dtype=_np.uint8))
+    assert len(dets) == 1, f"NMS should collapse the duplicate: {len(dets)}"
+    assert dets[0].label == "structural_damage"
+    assert DASHBOARD_CLASS_MAP["structural_damage"] == "DAMAGED STRUCTURE"
+    print(f"[16] inference decode/NMS OK  {dets[0].label} "
+          f"{dets[0].confidence:.2f} -> {dets[0].dash_class}")
 
     print("\nSMOKE TEST PASSED")
     return 0

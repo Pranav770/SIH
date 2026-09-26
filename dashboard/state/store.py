@@ -508,6 +508,16 @@ class DashboardStore(QObject):
                         existing.severity_level = h.severity_level
         return created
 
+    def ingest_edge_detections(self, raw, source: str = "edge") -> None:
+        """Local on-device detector output.
+
+        Edge inference runs *downstream* of whichever frame source is
+        authoritative, so results are merged directly instead of re-checking
+        mode authority (which only distinguishes live vs sim).
+        """
+        if raw:
+            self._merge_extra_detections(raw, source)
+
     def _merge_extra_detections(self, raw, source: str) -> None:
         if not raw:
             return

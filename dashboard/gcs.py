@@ -19,6 +19,7 @@ data — unreported values render as N/A / UNKNOWN / UNAVAILABLE.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from PySide6.QtCore import Qt, QTimer
@@ -47,6 +48,7 @@ from state.sim import SCENARIOS, SimulationEngine
 from threads.telemetry import DEFAULT_CONNECTION, TelemetryThread, mode_command
 from threads.ffmpeg_receiver import FFmpegReceiverThread
 from threads.map_receiver import MapReceiverThread
+from threads.inference import InferenceThread
 from widgets.camera_feed import CameraFeed
 from widgets.map_canvas import MapCanvas
 from widgets.status_bar import StatusBar
@@ -64,6 +66,7 @@ from widgets.sensor_panel import SensorPanel
 from widgets.alerts_panel import AlertsPanel
 from widgets.mission_panel import MissionPanel
 from widgets.report_panel import ReportPanel
+from widgets.model_panel import ModelPanel
 from theme import APP_BG, GLOBAL_QSS, tab_qss
 from utils.geo import latlon_to_grid
 from utils.kml import load_kml
@@ -71,16 +74,25 @@ from utils.kml import load_kml
 MODE_ARG = {"live": MODE_LIVE, "sitl": MODE_SITL,
             "sim": MODE_SIM, "simulation": MODE_SIM}
 
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_MODEL = os.path.join(_REPO_ROOT, "sih_model", "models", "best.onnx")
+
 
 class MissionPlannerGCS(QMainWindow):
     def __init__(self, mode: str = MODE_LIVE,
-                 mavlink: str = DEFAULT_CONNECTION):
+                 mavlink: str = DEFAULT_CONNECTION,
+                 model: str = DEFAULT_MODEL,
+                 conf: float = 0.25,
+                 demo_video: str | None = None):
         super().__init__()
         self.setWindowTitle("NIDAR Autonomous AirMouse GCS")
         self.setGeometry(50, 50, 1400, 850)
         self.setMinimumSize(1280, 700)
 
         self._mavlink = mavlink
+        self._model_path = model
+        self._conf = conf
+        self._demo_video = demo_video
         self._paused = False
         self._link_ok = False
         self._link_ever_ok = False
@@ -88,6 +100,8 @@ class MissionPlannerGCS(QMainWindow):
         self.telemetry_thread: TelemetryThread | None = None
         self.video_thread: FFmpegReceiverThread | None = None
         self.map_thread: MapReceiverThread | None = None
+        self.inference_thread: InferenceThread | None = None
+        self.demo_video_thread: FFmpegReceiverThread | None = None
 
         # single source of truth ------------------------------------------
         self.store = DashboardStore(mode=mode, parent=self)
@@ -151,11 +165,12 @@ class MissionPlannerGCS(QMainWindow):
         # right: slim tab column
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet(tab_qss())
-        self.tabs.setMinimumWidth(320)
+        self.tabs.setMinimumWidth(350)
         self.tabs.setMaximumWidth(440)
 
         self.nav_panel = NavPanel(self.store)
         self.ai_panel = AIPanel(self.store)
+        self.model_panel = ModelPanel(self.store)
         self.mission_panel = MissionPanel(self.store)
         self.comms_panel = CommsPanel(self.store)
         self.sensor_panel = SensorPanel(self.store)
@@ -163,6 +178,7 @@ class MissionPlannerGCS(QMainWindow):
 
         self.tabs.addTab(self._tab(self.nav_panel), "NAV")
         self.tabs.addTab(self._tab(self.ai_panel), "AI")
+        self.tabs.addTab(self._scroll_tab(self.model_panel), "MODEL")
         self.tabs.addTab(self._tab(self.mission_panel), "MISSION")
         self.tabs.addTab(self._tab(self._comms_tab()), "COMMS")
         self._report_index = self.tabs.addTab(self._tab(self.report_panel),
@@ -188,9 +204,13 @@ class MissionPlannerGCS(QMainWindow):
         # -- sources --------------------------------------------------------
         self.sim = SimulationEngine()
         self.map_thread = MapReceiverThread()
+        self.inference_thread = InferenceThread(self._model_path, conf=self._conf)
 
         self._connect_static()
         self.map_thread.start()
+        self.inference_thread.start()
+        if self._demo_video:
+            self._start_demo_video(self._demo_video)
 
         # initial per-mode setup (threads, chip, headers, first paint)
         self._on_mode_changed(self.store.mode)
@@ -205,6 +225,15 @@ class MissionPlannerGCS(QMainWindow):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(widget)
         return wrap
+
+    @staticmethod
+    def _scroll_tab(widget: QWidget) -> QScrollArea:
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidget(widget)
+        scroll.setStyleSheet("QScrollArea { background: transparent; }")
+        return scroll
 
     def _comms_tab(self) -> QWidget:
         inner = QWidget()
@@ -243,6 +272,10 @@ class MissionPlannerGCS(QMainWindow):
         # store → frame consumers
         st.frame_available.connect(self.camera_feed.update_frame)
         st.thermal_available.connect(self.thermal_feed.update_frame)
+        # local on-device inference taps the same authoritative RGB frames
+        st.frame_available.connect(self._on_frame_for_inference)
+        self.inference_thread.detections_signal.connect(self._on_edge_detections)
+        self.inference_thread.status_signal.connect(self._on_inference_status)
 
         # store ticks → panels
         st.tick_fast.connect(self._refresh_fast)
@@ -291,6 +324,42 @@ class MissionPlannerGCS(QMainWindow):
     def _on_tab_changed(self, index: int) -> None:
         if index == self._report_index:
             self.report_panel.refresh(force=True)
+
+    # ------------------------------------------------------------------
+    # local on-device inference (edge AI on the GCS host)
+    # ------------------------------------------------------------------
+    def _on_frame_for_inference(self, frame) -> None:
+        if self.inference_thread is not None:
+            self.inference_thread.submit_frame(frame)
+
+    def _on_edge_detections(self, raw) -> None:
+        self.store.ingest_edge_detections(raw, source="edge")
+
+    def _on_inference_status(self, status: dict) -> None:
+        self.ai_panel.set_local_inference(status)
+        self.model_panel.set_inference_status(status)
+
+    def _start_demo_video(self, url: str) -> None:
+        """Loop a bundled/sample video through inference when no camera exists."""
+        v = FFmpegReceiverThread(url)
+        v.frame_signal.connect(self._on_demo_video_frame)
+        v.status_signal.connect(lambda s: setattr(self, "_video_status", s))
+        v.start()
+        self.demo_video_thread = v
+
+    def _on_demo_video_frame(self, frame) -> None:
+        # demo frames use whatever the current mode's video authority is, so
+        # they are accepted in SIM/SITL as well as LIVE
+        self.store.ingest_frame(frame, source=self.store.video_authority,
+                                kind="rgb")
+
+    def _stop_demo_video(self) -> None:
+        v = self.demo_video_thread
+        if v is None:
+            return
+        self.demo_video_thread = None
+        v.stop()
+        v.deleteLater()
 
     # ------------------------------------------------------------------
     # mode management
@@ -679,6 +748,10 @@ class MissionPlannerGCS(QMainWindow):
         self.header.stop()
         self._stop_telemetry()
         self._stop_video()
+        self._stop_demo_video()
+        if self.inference_thread is not None:
+            self.inference_thread.stop()
+            self.inference_thread = None
         if self.map_thread is not None:
             self.map_thread.stop()
             self.map_thread = None
@@ -699,15 +772,31 @@ def _parse_args(argv=None):
                         f"(default: {DEFAULT_CONNECTION}; use "
                         f"'udpin:0.0.0.0:14551' if QGroundControl holds "
                         f"port 14550)")
+    p.add_argument("--model", default=DEFAULT_MODEL,
+                   help="path to the on-device model (best.onnx or best.pt). "
+                        f"Default: {DEFAULT_MODEL}")
+    p.add_argument("--conf", type=float, default=0.25,
+                   help="detector confidence threshold (default 0.25)")
+    p.add_argument("--demo", action="store_true",
+                   help="one-flag demo: defaults to SIMULATION mode so the "
+                        "built-in scenario + on-device AI run with no hardware")
+    p.add_argument("--demo-video", default=None,
+                   help="loop a video file/URL through inference when no "
+                        "camera feed is available")
     return p.parse_args(argv)
 
 
 if __name__ == "__main__":
     args = _parse_args()
-    mode = MODE_ARG[args.mode] if args.mode else MODE_LIVE
+    if args.mode:
+        mode = MODE_ARG[args.mode]
+    else:
+        mode = MODE_SIM if args.demo else MODE_LIVE
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setStyleSheet(GLOBAL_QSS)
-    gcs = MissionPlannerGCS(mode=mode, mavlink=args.mavlink)
+    gcs = MissionPlannerGCS(mode=mode, mavlink=args.mavlink,
+                            model=args.model, conf=args.conf,
+                            demo_video=args.demo_video)
     gcs.show()
     sys.exit(app.exec())
