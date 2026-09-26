@@ -1,7 +1,7 @@
 [project]
 name = "sih"
 version = "0.1.0"
-description = "Add your description here"
+description = "NIDAR AirMouse — autonomous AI drone for disaster response (SIH 2026, PSID 26177)"
 readme = "README.md"
 authors = [
     { name = "Pranav770", email = "175470329+Pranav770@users.noreply.github.com" }
@@ -15,9 +15,7 @@ dependencies = [
     "pyside6>=6.11.2",
 ]
 
-[project.scripts]
-sih = "sih:main"
-
-[build-system]
-requires = ["uv_build>=0.12.7,<0.13.0"]
-build-backend = "uv_build"
+# This repository is an application, not an installable package — it is run
+# from source (dashboard/gcs.py) rather than imported.
+[tool.uv]
+package = false
