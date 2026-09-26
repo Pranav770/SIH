@@ -1,10 +1,8 @@
-# SIH on-device inference dependencies
-#
-# Primary (edge) backend — ONNX Runtime:
-onnxruntime>=1.18
-numpy>=2.0
-opencv-python>=4.8
-pillow>=10.0
+# SIH Model Module Requirements
+# For inference execution, ONNX runtime optimization, and PyTorch model support
 
-# Optional PyTorch fallback (large ~2GB; only if you want to run best.pt directly):
-# ultralytics>=8.3
+onnxruntime>=1.18.0
+ultralytics>=8.2.0
+onnxslim>=0.1.96
+numpy>=1.24.0
+opencv-python>=4.8.0
