@@ -1,4 +1,4 @@
-# NIDAR AirMouse GCS — Autonomous Disaster-Response Upgrade
+# Autonomous Disaster-Response GCS — Upgrade Report
 
 **Scope of this report (13 points, as agreed):** what already existed, what was
 missing, the files touched, the telemetry source map, how GPS-denied and
@@ -151,7 +151,7 @@ wins over the risk-model estimate**.
 ## 9. Situation report
 
 `report_panel.py` + `utils/report.py::build_report` produce a live preview with
-**JSON / CSV / print** export (default folder `~/NIDAR_Reports`). Every field is
+**JSON / CSV / print** export (default folder `~/SIH_Reports`). Every field is
 derived from actual store state, so an unmeasured value appears as `N/A` /
 `NOT REPORTED` in the export too. The preview force-refreshes when its tab is
 opened.

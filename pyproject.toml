@@ -1,7 +1,7 @@
 [project]
 name = "sih"
 version = "0.1.0"
-description = "NIDAR AirMouse — autonomous AI drone for disaster response (SIH 2026, PSID 26177)"
+description = "Autonomous AI drone for disaster response (SIH 2026, PSID 26177)"
 readme = "README.md"
 authors = [
     { name = "Pranav770", email = "175470329+Pranav770@users.noreply.github.com" }

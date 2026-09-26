@@ -512,7 +512,7 @@ class SimulationEngine(QThread):
         extra = {
             "ai": {
                 "on_device": True,
-                "model": "NIDAR-yolov8n-int8 (edge)",
+                "model": "YOLO26n (edge)",
                 "fps": round(23.5 + self._rng.random() * 2.0, 1),
                 "latency_ms": int(38 + self._rng.random() * 8),
                 "cpu_pct": int(34 + self._rng.random() * 10),

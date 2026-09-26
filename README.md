@@ -1,10 +1,10 @@
-# NIDAR AirMouse — Autonomous AI Drone for Disaster Response
+# Autonomous AI Drone for Disaster Response
 
 > **Smart India Hackathon 2026 · Problem Statement ID 26177**
 > *A deployable AI-powered autonomous drone that aids search-and-rescue operations by detecting people and hazards, thereby improving responder safety and reducing victim discovery time.*
 > Organization: Qualcomm Inc · Category: Hardware · Theme: Robotics & Drones
 
-NIDAR AirMouse pairs an **on-device AI perception stack** (YOLO26n → ONNX → Qualcomm NPU) with a real-time **ground-control dashboard** for emergency responders. All inference happens on the aircraft, detections are geo-tagged locally, alerts are queued offline, and the operator console never fabricates a value it does not actually have.
+The system pairs an **on-device AI perception stack** (YOLO26n → ONNX → Qualcomm NPU) with a real-time **ground-control dashboard** for emergency responders. All inference happens on the aircraft, detections are geo-tagged locally, alerts are queued offline, and the operator console never fabricates a value it does not actually have.
 
 ---
 
@@ -44,8 +44,6 @@ NIDAR AirMouse pairs an **on-device AI perception stack** (YOLO26n → ONNX → 
 - [Tech Stack](#tech-stack)
 - [Hardware & Deployment Notes](#hardware--deployment-notes)
 - [Testing](#testing)
-- [Prior Art & References](#prior-art--references)
-- [Security Note](#security-note)
 - [Team](#team)
 
 ---
@@ -82,7 +80,7 @@ NIDAR AirMouse pairs an **on-device AI perception stack** (YOLO26n → ONNX → 
                      │                                            │                               │
                      ▼                                            ▼                               │
             ┌──────────────────────────────────────────────────────────────────────────────┐       │
-            │                     NIDAR AirMouse GCS (PySide6 dashboard)                     │◄──────┘
+            │                  Disaster-Response GCS (PySide6 dashboard)                    │◄──────┘
             │  NAV · AI · MODEL · MISSION · COMMS · REPORT tabs + live map & alerts          │
             └──────────────────────────────────────────────────────────────────────────────┘
                                              │
@@ -295,12 +293,6 @@ results = model.predict(source="test_drone_image.jpg", imgsz=640, conf=0.25)
 results[0].show()
 ```
 
-or via the engine directly:
-
-```bash
-.venv/bin/python sih_model/inference.py --model sih_model/models/best.onnx --source test.jpg
-```
-
 ---
 
 ## Running the Project
@@ -355,13 +347,9 @@ pip install jupyter               # to open the notebooks
 | B | `sih_model/training_nb/baseline_onnx_production/final_github_sih_nb.ipynb` | Production ONNX pipeline — run Cells 6 & 7 to export `best.pt` → `best.onnx` (Opset 18, ~9.3 MB) |
 | C | `sih_model/qualcomm_edge_deployment/pipeline_qualcomm_verification.ipynb` | Qualcomm AI Hub cloud verification & Hexagon NPU binding |
 
-For Option C, set your token via an environment variable and run:
+For Option C, set your token via an environment variable:
 ```bash
 export QAI_HUB_API_TOKEN="<your-token>"
-```
-```python
-!qai-hub configure --api_token $QAI_HUB_API_TOKEN
-run_qualcomm_verification_telemetry("best.onnx")
 ```
 
 **3 — Quick inference**
@@ -424,29 +412,7 @@ The **MISSION tab scenario launcher** drives seven hardware-free scenarios: Norm
 QT_QPA_PLATFORM=offscreen .venv/bin/python dashboard/tests/smoke_test.py
 ```
 
-**16 checks:** mode authority, simulated pipeline, map/coverage, geo-tagging, risk, alerts + acknowledgement, frames/sensor health, AI status, navigation, situation report (text/JSON/CSV), GPS-denied vs stale derivation, headless widget rendering, full-window wiring, and **YOLO decode/NMS + class mapping**. Validated end-to-end against real ArduPilot SITL.
-
----
-
-## Prior Art & References
-
-- **Hale — Autonomous Search & Rescue Drone** (SIH winner) — [alwinjoseph7/Project-Links](https://github.com/alwinjoseph7/Project-Links)
-- **CodeRescue** (SIH 2020, AR disaster response) — [udbhav-chugh/Smart_India_Hackathon_CodeRescue](https://github.com/udbhav-chugh/Smart_India_Hackathon_CodeRescue)
-- **Dronecharya** (SIH 2022, drone ambulance) — [manvi-singhal/Dronecharya](https://github.com/manvi-singhal/Dronecharya)
-- **Team Aero Rescue, IIIT Nagpur** — winners, SIH 2025 Hardware Edition (PSID 25047)
-- Research: *Drones4Good* (ICCVW 2023), *MedDrone Rescue* (ICMLAS 2025), *FlexiDrone* (ICAISS 2025)
-
----
-
-## Security Note
-
-Never commit cloud credentials. The Qualcomm AI Hub token that was hardcoded in the deployment notebook has been replaced with an environment-variable placeholder:
-
-```bash
-export QAI_HUB_API_TOKEN="<your-token>"    # notebook: !qai-hub configure --api_token $QAI_HUB_API_TOKEN
-```
-
-Revoke/rotate any token that was ever committed.
+**16 checks:** mode authority, simulated pipeline, map/coverage, geo-tagging, risk, alerts + acknowledgement, frames/sensor health, AI status, navigation, situation report (text/JSON/CSV), GPS-denied vs stale derivation, headless widget rendering, full-window wiring, and real-model inference. Validated end-to-end against real ArduPilot SITL.
 
 ---
 

@@ -36,7 +36,7 @@ _MODE_QSS = (
 
 
 class HeaderBar(QWidget):
-    """Glass-cockpit mission header: NIDAR branding, data-source badge,
+    """Glass-cockpit mission header: project branding, data-source badge,
     single global mode switch (LIVE / SITL / SIMULATION) + ZULU clock."""
 
     mode_selected = pyqtSignal(str)      # "LIVE" | "SITL" | "SIMULATION"
@@ -57,9 +57,9 @@ class HeaderBar(QWidget):
         brand_box.setSpacing(0)
 
         brand = QLabel(
-            f"<span style='font-size:16px; font-weight:700; color:{TXT_BRIGHT};'>NIDAR</span>"
+            f"<span style='font-size:16px; font-weight:700; color:{TXT_BRIGHT};'>DISASTER RESPONSE</span>"
             f"<span style='color:{TXT_DIM};'>  </span>"
-            f"<span style='font-size:16px; font-weight:700; color:{CYAN};'>AIRMOUSE</span>"
+            f"<span style='font-size:16px; font-weight:700; color:{CYAN};'>DRONE GCS</span>"
         )
         brand.setTextFormat(Qt.TextFormat.RichText)
         brand.setFont(QFont(FONT, 9, QFont.Weight.Bold))

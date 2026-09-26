@@ -3,7 +3,7 @@ exports.
 
 The preview regenerates from :meth:`store.build_report` — every field comes
 from actual store state, so an unmeasured value shows as ``N/A`` /
-``NOT REPORTED`` in the export too.  Defaults to ``~/NIDAR_Reports``.
+``NOT REPORTED`` in the export too.  Defaults to ``~/SIH_Reports``.
 """
 
 from __future__ import annotations
@@ -111,7 +111,7 @@ class ReportPanel(QWidget):
     def _save_dialog(self, suffix: str) -> str | None:
         os.makedirs(EXPORT_DIR, exist_ok=True)
         stamp = time.strftime("%Y%m%d_%H%M%S")
-        default = os.path.join(EXPORT_DIR, f"nidar_report_{stamp}{suffix}")
+        default = os.path.join(EXPORT_DIR, f"sih_report_{stamp}{suffix}")
         path, _ = QFileDialog.getSaveFileName(
             self, "Export situation report", default,
             f"Report (*{suffix})")

@@ -1,4 +1,4 @@
-"""NIDAR glass-cockpit theme.
+"""Glass-cockpit theme.
 
 Central palette and shared stylesheet helpers for the EFIS-style "glass
 cockpit" aesthetic applied across every GCS widget. Change a constant here and

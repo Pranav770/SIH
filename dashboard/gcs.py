@@ -1,4 +1,4 @@
-"""NIDAR GCS — main window.
+"""Autonomous disaster-response drone GCS — main window.
 
 Architecture
 ------------
@@ -85,7 +85,7 @@ class MissionPlannerGCS(QMainWindow):
                  conf: float = 0.25,
                  demo_video: str | None = None):
         super().__init__()
-        self.setWindowTitle("NIDAR Autonomous AirMouse GCS")
+        self.setWindowTitle("Autonomous Disaster-Response Drone GCS")
         self.setGeometry(50, 50, 1400, 850)
         self.setMinimumSize(1280, 700)
 
@@ -761,8 +761,7 @@ class MissionPlannerGCS(QMainWindow):
 
 def _parse_args(argv=None):
     p = argparse.ArgumentParser(
-        description="NIDAR GCS — autonomous disaster-response drone ground "
-                    "control station")
+        description="Autonomous disaster-response drone ground control station")
     p.add_argument("--mode", choices=sorted(MODE_ARG), default=None,
                    help="data mode: live (all real) / sitl (telemetry real, "
                         "perception+video simulated) / sim (everything "

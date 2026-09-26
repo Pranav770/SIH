@@ -10,4 +10,4 @@ _DASHBOARD_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(_DASHBOARD_DIR, ".local_store")
 
 # Default folder offered by report/export dialogs.
-EXPORT_DIR = os.path.join(os.path.expanduser("~"), "NIDAR_Reports")
+EXPORT_DIR = os.path.join(os.path.expanduser("~"), "SIH_Reports")

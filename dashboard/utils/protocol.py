@@ -6,6 +6,8 @@ import numpy as np
 MAP_PORT = 5556
 VIDEO_PORT = 5555
 
+# NOTE: legacy wire magic — must match the companion sender; do not change
+# unilaterally or UDP perception packets will stop decoding.
 HEADER_MAGIC = b"NIDAR"
 HEADER_FORMAT = "!5sII"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)

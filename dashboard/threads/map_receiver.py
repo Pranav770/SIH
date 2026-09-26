@@ -1,4 +1,4 @@
-"""NIDAR ground-station UDP receiver (perception uplink, default port 5556).
+"""Ground-station UDP receiver (perception uplink, default port 5556).
 
 Decodes the packet with :func:`utils.protocol.decode_map_packet` and passes
 the raw structures straight through — the dashboard store is the single

@@ -1,6 +1,6 @@
 """DashboardStore — the single source of truth (Step 17/18).
 
-Every data source (live MAVLink thread, NIDAR map/video sockets, the
+Every data source (live MAVLink thread, companion map/video sockets, the
 simulation engine) feeds the store through ``ingest_*`` methods.  The store
 
 * enforces **mode authority** so live and simulated values never mix,
@@ -299,7 +299,7 @@ class DashboardStore(QObject):
             self.mission_changed.emit()
 
     # ------------------------------------------------------------------
-    # ingestion — perception (NIDAR map packets / simulation)
+    # ingestion — perception (companion map packets / simulation)
     # ------------------------------------------------------------------
     def ingest_map(self, grid, survivors_raw, drone_pos, hazards_raw,
                    mission: dict, extra: dict | None = None,
