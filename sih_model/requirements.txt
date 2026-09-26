@@ -1,0 +1,8 @@
+# SIH Model Module Requirements
+# For inference execution, ONNX runtime optimization, and PyTorch model support
+
+onnxruntime>=1.18.0
+ultralytics>=8.2.0
+onnxslim>=0.1.96
+numpy>=1.24.0
+opencv-python>=4.8.0
