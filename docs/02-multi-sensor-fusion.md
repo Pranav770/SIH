@@ -79,19 +79,7 @@ A detection is only pixels in an image. To tell rescuers where to go, we combine
 
 Location error depends mostly on how well the drone knows its tilt and its height. In our model, at about 5 m height with 1 degree of tilt error, the location is within roughly 0.3 m.
 
-## 6. Status and next steps
-
-**Done**
-- Pixhawk 4 sensor chain (IMU, GPS, barometer, rangefinder, optical flow) installed and logging.
-- EKF3 fusion running on real flights, with GPS handling confirmed on recorded data.
-- Replay tools that let us test fusion on any recorded flight (`sim/`).
-
-**Next**
-- Tune the optical flow sensor so it gives good data at flight height.
-- Indoor GPS-denied hover test with optical flow as the speed source.
-- Compare the recorded results with the simulation above.
-
-## 7. Files
+## 6. Files
 
 - `sim/fusion_sim.py`: simulation behind section 3
 - `sim/ekf3_vs_gps_speed.py`: figure in section 4.1
