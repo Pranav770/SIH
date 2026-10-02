@@ -86,6 +86,3 @@ Location error depends mostly on how well the drone knows its tilt and its heigh
 - `sensor_fusion_validation/fusion_replay.py`: height fusion and GPS-outage analysis (sections 4.2 and 4.3)
 - `assets/`: all figures
 
-Install: `pip install -r docs/sim/requirements.txt`. Run: `python fusion_sim.py` (no log needed), or `python <script>.py path/to/log.bin` for the log-based scripts.
-
-The log-based scripts use time windows picked for our own recordings (set at the top of each script as `REST`, `FLY` or the flight segments). Edit those values to analyse a different flight.
